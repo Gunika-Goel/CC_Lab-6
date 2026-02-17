@@ -5,21 +5,21 @@ pipeline {
 
         stage('Build Backend Image') {
             steps {
-                sh '''
-                echo "Current directory:"
+                sh """
+                echo Current directory:
                 pwd
                 ls
 
                 docker rmi -f backend-app || true
 
                 docker build -t backend-app ./backend
-                '''
+                """
             }
         }
 
         stage('Deploy Backend Containers') {
             steps {
-                sh '''
+                sh """
                 docker network create app-network || true
 
                 docker rm -f backend1 backend2 || true
@@ -27,34 +27,27 @@ pipeline {
                 docker run -d --name backend1 --network app-network backend-app
 
                 docker run -d --name backend2 --network app-network backend-app
-                '''
+                """
             }
         }
 
         stage('Deploy NGINX Load Balancer') {
             steps {
-                sh '''
-                echo "Removing old nginx container if exists..."
+                sh """
                 docker rm -f nginx-lb || true
 
-                echo "Starting nginx container..."
                 docker run -d \
                   --name nginx-lb \
                   --network app-network \
                   -p 80:80 \
                   nginx
 
-                echo "Waiting for nginx to start..."
                 sleep 5
 
-                echo "Copying nginx config..."
                 docker cp ./nginx/default.conf nginx-lb:/etc/nginx/conf.d/default.conf
 
-                echo "Reloading nginx..."
                 docker exec nginx-lb nginx -s reload || true
-
-                echo "NGINX deployment complete"
-                '''
+                """
             }
         }
 
@@ -62,7 +55,10 @@ pipeline {
 
     post {
         success {
-            echo 'SUCCESS: Pipeline executed successfully. NGINX load balancer is running.'
+            echo "SUCCESS: Pipeline executed successfully. NGINX load balancer is running."
         }
         failure {
-            echo '
+            echo "ERROR: Pipeline failed. Check console logs."
+        }
+    }
+}

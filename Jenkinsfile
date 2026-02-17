@@ -11,6 +11,7 @@ pipeline {
                 ls
 
                 docker rmi -f backend-app || true
+
                 docker build -t backend-app ./backend
                 '''
             }
@@ -24,6 +25,7 @@ pipeline {
                 docker rm -f backend1 backend2 || true
 
                 docker run -d --name backend1 --network app-network backend-app
+
                 docker run -d --name backend2 --network app-network backend-app
                 '''
             }
@@ -32,18 +34,26 @@ pipeline {
         stage('Deploy NGINX Load Balancer') {
             steps {
                 sh '''
+                echo "Removing old nginx container if exists..."
+                docker rm -f nginx-lb || true
+
+                echo "Starting nginx container..."
                 docker run -d \
                   --name nginx-lb \
                   --network app-network \
                   -p 80:80 \
                   nginx
-                
+
+                echo "Waiting for nginx to start..."
                 sleep 5
-                
+
+                echo "Copying nginx config..."
                 docker cp ./nginx/default.conf nginx-lb:/etc/nginx/conf.d/default.conf
-                
+
+                echo "Reloading nginx..."
                 docker exec nginx-lb nginx -s reload || true
 
+                echo "NGINX deployment complete"
                 '''
             }
         }
@@ -52,10 +62,7 @@ pipeline {
 
     post {
         success {
-            echo 'Pipeline executed successfully. NGINX load balancer is running.'
+            echo 'SUCCESS: Pipeline executed successfully. NGINX load balancer is running.'
         }
         failure {
-            echo 'Pipeline failed. Check console logs for errors.'
-        }
-    }
-}
+            echo '
